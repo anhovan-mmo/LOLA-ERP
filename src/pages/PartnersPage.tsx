@@ -2,8 +2,9 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Card, CardContent } from '../components/ui/card';
 import { useAppContext, Partner } from '../context/AppContext';
 import { formatCurrency } from '../lib/utils';
-import { Edit2, Trash2, Upload, Search, X } from 'lucide-react';
+import { Edit2, Trash2, Upload, Search, X, Eye } from 'lucide-react';
 import { PartnerFormModal } from '../components/PartnerFormModal';
+import { PartnerDetailModal } from '../components/PartnerDetailModal';
 import Papa from 'papaparse';
 import { db, auth } from '../lib/firebase/config';
 import { doc, writeBatch, serverTimestamp, collection } from 'firebase/firestore';
@@ -12,6 +13,7 @@ export function PartnersPage() {
   const { partners, deletePartner } = useAppContext();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
+  const [detailPartner, setDetailPartner] = useState<Partner | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -267,6 +269,9 @@ export function PartnersPage() {
 
                   <td className="p-3 pr-4 border-b border-brand-border text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-2">
+                       <button onClick={() => setDetailPartner(p)} className="p-1.5 bg-blue-50 text-brand-primary hover:text-blue-700 hover:bg-blue-100 rounded transition-colors" title="Xem chi tiết">
+                         <Eye size={15} />
+                       </button>
                        <button onClick={() => handleEdit(p)} className="p-1.5 bg-slate-100 text-brand-text-sub hover:text-brand-primary rounded transition-colors" title="Chỉnh sửa">
                          <Edit2 size={15} />
                        </button>
@@ -282,6 +287,10 @@ export function PartnersPage() {
           </div>
         </CardContent>
       </Card>
+
+      {detailPartner && (
+        <PartnerDetailModal partner={detailPartner} onClose={() => setDetailPartner(null)} />
+      )}
     </>
   );
 }

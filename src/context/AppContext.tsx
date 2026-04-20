@@ -154,8 +154,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const batch = writeBatch(db);
     const now = serverTimestamp();
     
-    const txRef = doc(collection(db, 'transactions'));
-    const newTxId = txRef.id;
+    const prefix = txObj.type === 'IMPORT' ? 'NK' : 'XK';
+    const existingIds = transactions
+      .map(t => t.id)
+      .filter(id => id.startsWith(prefix))
+      .map(id => parseInt(id.replace(prefix, ''), 10))
+      .filter(num => !isNaN(num));
+      
+    const maxSeq = existingIds.length > 0 ? Math.max(...existingIds) : 0;
+    const newTxId = `${prefix}${(maxSeq + 1).toString().padStart(4, '0')}`;
+    
+    const txRef = doc(db, 'transactions', newTxId);
     
     batch.set(txRef, {
       ...txObj,

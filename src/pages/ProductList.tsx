@@ -23,15 +23,23 @@ export function ProductList() {
   const [showBrandDropdown, setShowBrandDropdown] = useState(false);
   const [showColDropdown, setShowColDropdown] = useState(false);
   
-  const [cols, setCols] = useState([
-    { id: 'id', label: 'Mã Hàng', visible: true },
-    { id: 'image', label: 'Hình Ảnh', visible: true },
-    { id: 'name', label: 'Tên Sản Phẩm', visible: true },
-    { id: 'brand', label: 'Thương Hiệu', visible: true },
-    { id: 'cost', label: 'Giá Vốn', visible: true },
-    { id: 'price', label: 'Giá Bán', visible: true },
-    { id: 'stock', label: 'Tồn Lượng', visible: true }
-  ]);
+  const [cols, setCols] = useState(() => {
+    const saved = localStorage.getItem('productTableCols');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch(e) {}
+    }
+    return [
+      { id: 'id', label: 'Mã Hàng', visible: true },
+      { id: 'image', label: 'Hình Ảnh', visible: true },
+      { id: 'name', label: 'Tên Sản Phẩm', visible: true },
+      { id: 'brand', label: 'Thương Hiệu', visible: true },
+      { id: 'cost', label: 'Giá Vốn', visible: true },
+      { id: 'price', label: 'Giá Bán', visible: true },
+      { id: 'stock', label: 'Tồn Lượng', visible: true }
+    ];
+  });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -190,6 +198,28 @@ export function ProductList() {
     });
   };
 
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('colIndex', index.toString());
+  };
+
+  const handleDrop = (e: React.DragEvent, index: number) => {
+    const dragIndex = parseInt(e.dataTransfer.getData('colIndex'), 10);
+    if (dragIndex === index || isNaN(dragIndex)) return;
+    const newCols = [...cols];
+    const [dragged] = newCols.splice(dragIndex, 1);
+    newCols.splice(index, 0, dragged);
+    setCols(newCols);
+  };
+  
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const saveColsDefault = () => {
+    localStorage.setItem('productTableCols', JSON.stringify(cols));
+    alert('Đã lưu cấu hình cột mặc định');
+  };
+
   return (
     <>
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
@@ -288,10 +318,20 @@ export function ProductList() {
                 </button>
                 {showColDropdown && (
                   <div className="absolute top-full right-0 mt-1 w-56 bg-white border border-brand-border shadow-lg rounded-[4px] z-10 p-2">
-                    <div className="text-[12px] font-bold text-brand-text-sub mb-2 uppercase px-2">Ẩn/Hiện Cột</div>
+                    <div className="flex justify-between items-center mb-2 px-2">
+                      <div className="text-[12px] font-bold text-brand-text-sub uppercase">Ẩn/Hiện Cột</div>
+                      <button onClick={saveColsDefault} className="text-[11px] text-brand-primary font-medium hover:underline">Lưu mặc định</button>
+                    </div>
                     {cols.map((col, idx) => (
-                      <div key={col.id} className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-[3px] group">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                      <div 
+                        key={col.id} 
+                        draggable 
+                        onDragStart={(e) => handleDragStart(e, idx)} 
+                        onDrop={(e) => handleDrop(e, idx)} 
+                        onDragOver={handleDragOver}
+                        className="flex items-center justify-between px-2 py-1 hover:bg-slate-50 rounded-[3px] group border border-transparent hover:border-slate-200 cursor-move"
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer w-full" onClick={(e) => e.stopPropagation()}>
                           <input 
                             type="checkbox" 
                             checked={col.visible} 
@@ -304,10 +344,6 @@ export function ProductList() {
                           />
                           <span className="text-[13px] text-brand-text">{col.label}</span>
                         </label>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => moveCol(idx, 'up')} disabled={idx === 0} className="text-gray-400 hover:text-gray-700 disabled:opacity-30">▲</button>
-                          <button onClick={() => moveCol(idx, 'down')} disabled={idx === cols.length - 1} className="text-gray-400 hover:text-gray-700 disabled:opacity-30">▼</button>
-                        </div>
                       </div>
                     ))}
                   </div>
@@ -375,15 +411,21 @@ export function ProductList() {
                     if (col.id === 'brand') return <td key={col.id} className="p-3 px-4 border-b border-brand-border text-brand-text-sub whitespace-nowrap">{product.brand || '-'}</td>;
                     if (col.id === 'cost') return <td key={col.id} className="p-3 px-4 border-b border-brand-border font-medium text-brand-text-sub whitespace-nowrap">{formatCurrency(product.cost)}</td>;
                     if (col.id === 'price') return <td key={col.id} className="p-3 px-4 border-b border-brand-border font-semibold text-brand-success whitespace-nowrap">{formatCurrency(product.price)}</td>;
-                    if (col.id === 'stock') return (
+                    if (col.id === 'stock') {
+                      const isLowStock = notifyLowStock && parseInt(stockThreshold) >= 0 && product.stock <= parseInt(stockThreshold);
+                      return (
                       <td key={col.id} className="p-3 pr-4 border-b border-brand-border text-center whitespace-nowrap">
-                        {product.stock > 0 ? (
-                          <span className={product.stock < 10 ? "bg-orange-100 text-orange-800 font-bold px-2 py-1 rounded-[3px] text-[11px]" : "bg-brand-tag-in-bg text-brand-tag-in-text font-bold px-2 py-1 rounded-[3px] text-[11px]"}>{product.stock}</span>
-                        ) : (
-                          <span className="bg-brand-tag-out-bg text-brand-tag-out-text font-bold px-2 py-1 rounded-[3px] text-[11px]">HẾT</span>
-                        )}
+                        <div className="flex items-center justify-center gap-2">
+                          {product.stock > 0 ? (
+                            <span className={product.stock < 10 ? "bg-orange-100 text-orange-800 font-bold px-2 py-1 rounded-[3px] text-[11px]" : "bg-brand-tag-in-bg text-brand-tag-in-text font-bold px-2 py-1 rounded-[3px] text-[11px]"}>{product.stock}</span>
+                          ) : (
+                            <span className="bg-brand-tag-out-bg text-brand-tag-out-text font-bold px-2 py-1 rounded-[3px] text-[11px]">HẾT</span>
+                          )}
+                          {isLowStock && <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]" title="Dưới định mức" />}
+                        </div>
                       </td>
                     );
+                    }
                     return null;
                   })}
                 </tr>
