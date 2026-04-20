@@ -154,7 +154,6 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
         qtyChange: type === 'IMPORT' ? item.quantity : -item.quantity
       }));
 
-      const amountPaid = parseNumberInput(amountPaidStr);
       const computedDebtAmount = totalPayable - amountPaid;
       const requiresDebt = computedDebtAmount !== 0;
       

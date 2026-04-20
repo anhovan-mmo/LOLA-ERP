@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Card, CardContent } from '../components/ui/card';
 import { useAppContext, Partner } from '../context/AppContext';
 import { formatCurrency } from '../lib/utils';
-import { Edit2, Trash2, Upload, Search, X, Eye } from 'lucide-react';
+import { Edit2, Trash2, Upload, Search, X, Eye, AlertTriangle } from 'lucide-react';
 import { PartnerFormModal } from '../components/PartnerFormModal';
 import { PartnerDetailModal } from '../components/PartnerDetailModal';
 import Papa from 'papaparse';
@@ -10,15 +10,54 @@ import { db, auth } from '../lib/firebase/config';
 import { doc, writeBatch, serverTimestamp, collection } from 'firebase/firestore';
 
 export function PartnersPage() {
-  const { partners, deletePartner } = useAppContext();
+  const { partners, deletePartner, userProfile, logActivity } = useAppContext();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [detailPartner, setDetailPartner] = useState<Partner | null>(null);
   const [importing, setImporting] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirmPartner, setDeleteConfirmPartner] = useState<{id: string, name: string} | null>(null);
+
+  const handleResetAllDebts = async () => {
+    if (userProfile?.role !== 'ADMIN') {
+      return alert("Chỉ có Quản lý (ADMIN) mới có quyền reset công nợ!");
+    }
+    const confirmed = window.confirm("CẢNH BÁO: \nBạn có chắc chắn muốn đặt lại TOÀN BỘ CÔNG NỢ của khách hàng và nhà cung cấp về 0? Hành động này rất nguy hiểm và không thể hoàn tác!");
+    if (!confirmed) return;
+
+    setResetting(true);
+    try {
+      let batch = writeBatch(db);
+      let count = 0;
+      
+      for (const p of partners) {
+        if (p.totalReceivable > 0 || p.totalPayable > 0) {
+          const pRef = doc(db, 'partners', p.id);
+          batch.update(pRef, { totalReceivable: 0, totalPayable: 0, updatedAt: serverTimestamp() });
+          count++;
+          
+          if (count === 490) { // Firestore batch limit is 500
+            await batch.commit();
+            batch = writeBatch(db);
+            count = 0;
+          }
+        }
+      }
+      
+      if (count > 0) {
+        await batch.commit();
+      }
+      logActivity('TÙY CHỈNH HỆ THỐNG', 'ĐỐI TÁC', 'Đã RESET toàn bộ công nợ của đối tác về 0');
+      alert("Thiết lập thành công! Tất cả công nợ đã được đặt về 0.");
+    } catch (error: any) {
+      alert("Lỗi khi đặt lại công nợ: " + error.message);
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const filteredPartners = useMemo(() => {
     return partners.filter(p => {
@@ -162,6 +201,22 @@ export function PartnersPage() {
             )}
           </button>
           <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+
+          {userProfile?.role === 'ADMIN' && (
+            <button 
+              disabled={resetting}
+              onClick={handleResetAllDebts}
+              className="bg-white text-brand-danger border border-brand-danger flex items-center justify-center py-2 px-3 rounded-[3px] font-semibold text-[13px] hover:bg-red-50 transition min-w-[100px] flex-1 sm:flex-none disabled:opacity-50"
+              title="Đặt lại toàn bộ công nợ Khách Hàng và Nhà Cung Cấp về 0"
+            >
+              {resetting ? "Đang xử lý..." : (
+                 <>
+                   <AlertTriangle size={16} className="mr-1.5 hidden sm:inline" />
+                   Reset Nợ (Về 0)
+                 </>
+              )}
+            </button>
+          )}
 
           <button 
             onClick={handleAddNew}
