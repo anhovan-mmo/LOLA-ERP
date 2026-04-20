@@ -7,7 +7,8 @@ import {
   UserCircle,
   Users,
   Menu,
-  X
+  X,
+  History
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAppContext } from '../context/AppContext';
@@ -24,6 +25,7 @@ export function Layout({ children, activeTab, setActiveTab }: { children: ReactN
     { id: 'debts', label: 'Công Nợ Thu Trả', icon: Landmark, roles: ['ADMIN', 'ACCOUNTANT'] },
     { id: 'partners', label: 'Khách Hàng & NCC', icon: UserCircle, roles: ['ADMIN', 'ACCOUNTANT', 'CSKH'] },
     { id: 'users', label: 'Quản Lý Nhân Viên', icon: Users, roles: ['ADMIN'] },
+    { id: 'logs', label: 'Nhật Ký Hoạt Động', icon: History, roles: ['ADMIN'] },
   ];
 
   const visibleTabs = allTabs.filter(t => t.roles.includes(role));

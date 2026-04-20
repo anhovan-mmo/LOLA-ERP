@@ -20,12 +20,23 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
   const [cart, setCart] = useState<{ productId: string, name: string, price: number, cost: number, quantity: number, stock: number }[]>([]);
   const [isPartnerOpen, setIsPartnerOpen] = useState(false);
   
-  const [discount, setDiscount] = useState<number | ''>('');
-  const [otherFees, setOtherFees] = useState<number | ''>('');
+  const [discountStr, setDiscountStr] = useState<string>('');
+  const [otherFeesStr, setOtherFeesStr] = useState<string>('');
   const [amountPaidStr, setAmountPaidStr] = useState<string>('0');
   const [isAmountTouched, setIsAmountTouched] = useState(false);
 
   const [saving, setSaving] = useState(false);
+
+  const formatNumberInput = (val: number | string) => {
+    if (!val) return '';
+    return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  const parseNumberInput = (str: string) => {
+    if (!str) return 0;
+    const stripped = str.replace(/[^0-9]/g, '');
+    return Number(stripped) || 0;
+  };
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm.trim()) return [];
@@ -90,18 +101,21 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
   const totalValue = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalCost = cart.reduce((acc, item) => acc + (item.cost * item.quantity), 0);
   
-  const totalPayable = totalValue - (Number(discount) || 0) + (Number(otherFees) || 0);
+  const discount = parseNumberInput(discountStr);
+  const otherFees = parseNumberInput(otherFeesStr);
+  
+  const totalPayable = totalValue - discount + otherFees;
   
   React.useEffect(() => {
     if (!isAmountTouched) {
-      setAmountPaidStr(totalPayable.toString());
+      setAmountPaidStr(formatNumberInput(totalPayable));
     }
   }, [totalPayable, isAmountTouched]);
 
   const handleSave = async () => {
     if (cart.length === 0) return alert('Vui lòng chọn ít nhất 1 sản phẩm');
     
-    const amountPaid = Number(amountPaidStr) || 0;
+    const amountPaid = parseNumberInput(amountPaidStr);
     const debtAmount = totalPayable - amountPaid;
     if (debtAmount > 0 && !selectedPartnerId) {
       return alert('Khách còn nợ vui lòng chọn Khách hàng / Nhà CC!');
@@ -123,9 +137,9 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
         note,
         partnerId: selectedPartnerId || null,
         partnerName: pName,
-        discount: Number(discount) || 0,
-        otherFees: Number(otherFees) || 0,
-        amountPaid: Number(amountPaidStr) || 0,
+        discount: discount,
+        otherFees: otherFees,
+        amountPaid: amountPaid,
         items: cart.map(item => ({
           productId: item.productId,
           name: item.name,
@@ -140,7 +154,7 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
         qtyChange: type === 'IMPORT' ? item.quantity : -item.quantity
       }));
 
-      const amountPaid = Number(amountPaidStr) || 0;
+      const amountPaid = parseNumberInput(amountPaidStr);
       const computedDebtAmount = totalPayable - amountPaid;
       const requiresDebt = computedDebtAmount !== 0;
       
@@ -290,9 +304,9 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-gray-500">Đơn giá:</span>
                         <input 
-                          type="number" 
-                          value={item.price}
-                          onChange={e => updateCustomPrice(item.productId, parseInt(e.target.value) || 0)}
+                          type="text" 
+                          value={formatNumberInput(item.price)}
+                          onChange={e => updateCustomPrice(item.productId, parseNumberInput(e.target.value))}
                           className="w-24 text-xs p-1 border rounded"
                         />
                       </div>
@@ -327,18 +341,18 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
               <div className="flex justify-between items-center">
                  <span className="text-gray-600 font-medium">Giảm giá</span>
                  <input 
-                   type="number"
-                   value={discount}
-                   onChange={e => setDiscount(e.target.value ? Number(e.target.value) : '')}
+                   type="text"
+                   value={discountStr}
+                   onChange={e => setDiscountStr(formatNumberInput(parseNumberInput(e.target.value)))}
                    className="w-28 text-right p-1 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500"
                  />
               </div>
               <div className="flex justify-between items-center">
                  <span className="text-gray-600 font-medium">Thu khác</span>
                  <input 
-                   type="number"
-                   value={otherFees}
-                   onChange={e => setOtherFees(e.target.value ? Number(e.target.value) : '')}
+                   type="text"
+                   value={otherFeesStr}
+                   onChange={e => setOtherFeesStr(formatNumberInput(parseNumberInput(e.target.value)))}
                    className="w-28 text-right p-1 border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500"
                  />
               </div>
@@ -349,12 +363,12 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
               <div className="flex justify-between items-center">
                  <span className="text-gray-600 font-medium">{type === 'EXPORT' ? 'Khách thanh toán' : 'Đã thanh toán'}</span>
                  <input 
-                   type="number"
+                   type="text"
                    value={amountPaidStr}
                    onFocus={() => setIsAmountTouched(true)}
                    onChange={e => {
                       setIsAmountTouched(true);
-                      setAmountPaidStr(e.target.value);
+                      setAmountPaidStr(formatNumberInput(parseNumberInput(e.target.value)));
                    }}
                    className="w-32 text-right p-1 border-b border-blue-400 bg-blue-50 font-bold text-gray-800 focus:outline-none focus:border-blue-600"
                  />
@@ -362,9 +376,9 @@ export function TransactionFormModal({ type, onClose }: TransactionFormModalProp
               <div className="flex justify-between items-center">
                  <span className="text-gray-600 font-medium whitespace-nowrap">Tính vào công nợ</span>
                  <span className="font-bold text-gray-800 flex items-center">
-                    {(totalPayable - (Number(amountPaidStr) || 0)) > 0 && <span className="mr-1">+</span>}
-                    {(totalPayable - (Number(amountPaidStr) || 0)) < 0 && <span className="mr-1 text-green-600">-</span>}
-                    {formatCurrency(Math.abs(totalPayable - (Number(amountPaidStr) || 0)))}
+                    {(totalPayable - parseNumberInput(amountPaidStr)) > 0 && <span className="mr-1">+</span>}
+                    {(totalPayable - parseNumberInput(amountPaidStr)) < 0 && <span className="mr-1 text-green-600">-</span>}
+                    {formatCurrency(Math.abs(totalPayable - parseNumberInput(amountPaidStr)))}
                  </span>
               </div>
             </div>

@@ -19,6 +19,13 @@ export function TransactionDetailModal({ transaction, onClose }: TransactionDeta
   };
 
   const grossProfit = calculateGrossProfit();
+  
+  const discount = transaction.discount || 0;
+  const otherFees = transaction.otherFees || 0;
+  const totalValue = transaction.totalValue || 0;
+  const totalPayable = totalValue - discount + otherFees;
+  const amountPaid = transaction.amountPaid || 0;
+  const debt = totalPayable - amountPaid;
 
   const handlePrint = () => {
     const iframe = document.createElement('iframe');
@@ -88,8 +95,30 @@ export function TransactionDetailModal({ transaction, onClose }: TransactionDeta
               `).join('') : '<tr><td colspan="4" style="text-align:center; padding: 20px;">Không có chi tiết mặt hàng</td></tr>'}
               
               <tr class="total-row">
-                <td colspan="3" class="right">TỔNG CỘNG:</td>
-                <td class="right">${formatCurrency(transaction.totalValue)}</td>
+                <td colspan="3" class="right">Tổng tiền hàng:</td>
+                <td class="right">${formatCurrency(totalValue)}</td>
+              </tr>
+              ${discount > 0 ? `
+              <tr>
+                <td colspan="3" class="right">Giảm giá:</td>
+                <td class="right">-${formatCurrency(discount)}</td>
+              </tr>` : ''}
+              ${otherFees > 0 ? `
+              <tr>
+                <td colspan="3" class="right">Thu khác:</td>
+                <td class="right">+${formatCurrency(otherFees)}</td>
+              </tr>` : ''}
+              <tr>
+                <td colspan="3" class="right"><strong>Khách cần trả:</strong></td>
+                <td class="right"><strong>${formatCurrency(totalPayable)}</strong></td>
+              </tr>
+              <tr>
+                <td colspan="3" class="right">Khách thanh toán:</td>
+                <td class="right">${formatCurrency(amountPaid)}</td>
+              </tr>
+              <tr>
+                <td colspan="3" class="right">Tính vào công nợ:</td>
+                <td class="right">${formatCurrency(debt)}</td>
               </tr>
             </tbody>
           </table>
@@ -222,19 +251,63 @@ export function TransactionDetailModal({ transaction, onClose }: TransactionDeta
                     </tr>
                   ))}
                   <tr className="bg-[#f8f9fa]">
-                    <td colSpan={3} className="py-3 px-3 text-right font-bold text-brand-text-sub">
-                      Tổng Cộng:
+                    <td colSpan={3} className="py-2 px-3 text-right font-medium text-brand-text-sub">
+                      Tổng tiền hàng:
                     </td>
-                    <td className="py-3 px-3 text-right font-bold text-[15px] text-brand-primary">
-                      {formatCurrency(transaction.totalValue)}
+                    <td className="py-2 px-3 text-right font-bold text-[14px] text-brand-text">
+                      {formatCurrency(totalValue)}
+                    </td>
+                  </tr>
+                  {discount > 0 && (
+                    <tr>
+                      <td colSpan={3} className="py-2 px-3 text-right font-medium text-brand-text-sub">
+                        Giảm giá:
+                      </td>
+                      <td className="py-2 px-3 text-right text-[14px] text-brand-text">
+                        -{formatCurrency(discount)}
+                      </td>
+                    </tr>
+                  )}
+                  {otherFees > 0 && (
+                    <tr>
+                      <td colSpan={3} className="py-2 px-3 text-right font-medium text-brand-text-sub">
+                        Thu khác:
+                      </td>
+                      <td className="py-2 px-3 text-right text-[14px] text-brand-text">
+                        +{formatCurrency(otherFees)}
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="bg-blue-50">
+                    <td colSpan={3} className="py-2 px-3 text-right font-bold text-brand-text">
+                      Khách cần trả:
+                    </td>
+                    <td className="py-2 px-3 text-right font-bold text-[15px] text-blue-600">
+                      {formatCurrency(totalPayable)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} className="py-2 px-3 text-right font-medium text-brand-text-sub">
+                      {transaction.type === 'EXPORT' ? 'Khách thanh toán:' : 'Đã thanh toán:'}
+                    </td>
+                    <td className="py-2 px-3 text-right text-[14px] font-bold text-brand-text">
+                      {formatCurrency(amountPaid)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} className="py-2 px-3 text-right font-medium text-brand-text-sub">
+                      Tính vào công nợ:
+                    </td>
+                    <td className="py-2 px-3 text-right text-[14px] font-bold text-brand-text">
+                      {formatCurrency(Math.abs(debt))} {debt > 0 ? '(Ghi nợ)' : debt < 0 ? '(Thối lại)' : ''}
                     </td>
                   </tr>
                   {transaction.type === 'EXPORT' && (
                     <tr className="bg-green-50">
-                      <td colSpan={3} className="py-2 px-3 text-right font-bold text-green-700">
+                      <td colSpan={3} className="py-3 px-3 text-right font-bold text-green-700">
                         Lợi Nhuận Gộp:
                       </td>
-                      <td className="py-2 px-3 text-right font-bold text-[14px] text-green-700">
+                      <td className="py-3 px-3 text-right font-bold text-[15px] text-green-700">
                         {formatCurrency(grossProfit)}
                       </td>
                     </tr>

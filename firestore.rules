@@ -46,7 +46,7 @@ service cloud.firestore {
     }
 
     function isValidTransaction(data) {
-      return data.keys().hasOnly(['id', 'type', 'date', 'totalValue', 'costValue', 'note', 'partnerId', 'partnerName', 'userId', 'items', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['id', 'type', 'date', 'totalValue', 'costValue', 'note', 'partnerId', 'partnerName', 'userId', 'items', 'createdAt', 'updatedAt', 'discount', 'otherFees', 'amountPaid'])
         && data.id is string && data.id.size() > 0 && data.id.size() <= 128
         && data.type in ['IMPORT', 'EXPORT']
         && data.date is string && data.date.size() > 0 && data.date.size() <= 50
@@ -55,8 +55,21 @@ service cloud.firestore {
         && (!('note' in data) || data.note == null || (data.note is string && data.note.size() <= 1000))
         && (!('partnerId' in data) || data.partnerId == null || (data.partnerId is string && data.partnerId.size() <= 128))
         && (!('partnerName' in data) || data.partnerName == null || (data.partnerName is string && data.partnerName.size() <= 256))
+        && (!('discount' in data) || data.discount == null || data.discount is number)
+        && (!('otherFees' in data) || data.otherFees == null || data.otherFees is number)
+        && (!('amountPaid' in data) || data.amountPaid == null || data.amountPaid is number)
         && (!('items' in data) || data.items == null || (data.items is list && data.items.size() <= 500))
         && data.userId == request.auth.uid;
+    }
+
+    function isValidActivityLog(data) {
+      return data.keys().hasOnly(['id', 'userId', 'userName', 'action', 'module', 'details', 'createdAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.userId is string && data.userId == request.auth.uid
+        && data.userName is string && data.userName.size() <= 256
+        && data.action is string && data.action.size() <= 100
+        && data.module is string && data.module.size() <= 100
+        && data.details is string && data.details.size() <= 2000;
     }
 
     // Paths
@@ -116,6 +129,11 @@ service cloud.firestore {
         (isAdmin()) // Added generic admin update bypass for flexibility
       ) && incoming().updatedAt == request.time && isValidUser(incoming());
       allow delete: if isAdmin();
+    }
+    match /activity_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isVerified() && isValidId(logId) && isValidActivityLog(incoming()) && incoming().createdAt == request.time;
+      allow update, delete: if false; // immutable
     }
   }
 }

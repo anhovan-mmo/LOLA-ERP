@@ -29,6 +29,7 @@ interface AppState {
   deletePartner: (partnerId: string) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
+  logActivity: (action: string, module: string, details: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -103,16 +104,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await signInWithGoogle();
   };
 
+  const logActivity = async (action: string, module: string, details: string) => {
+    if (!user) return;
+    try {
+      const logRef = doc(collection(db, 'activity_logs'));
+      await setDoc(logRef, {
+        id: logRef.id,
+        userId: user.uid,
+        userName: userProfile?.name || user.email || 'Unknown',
+        action,
+        module,
+        details,
+        createdAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.error('Lỗi khi ghi log hoạt động:', e);
+    }
+  };
+
   const updateUserRole = async (userId: string, newRole: Role) => {
     if (userProfile?.role !== 'ADMIN') throw new Error('Permission denied');
     const uRef = doc(db, 'users', userId);
     await setDoc(uRef, { role: newRole, updatedAt: serverTimestamp() }, { merge: true });
+    logActivity('PHÂN QUYỀN', 'NHÂN VIÊN', `Mã NV: ${userId} -> Quyền: ${newRole}`);
   };
 
   const deleteProduct = async (productId: string) => {
     if (userProfile?.role !== 'ADMIN' && userProfile?.role !== 'ACCOUNTANT') throw new Error('Permission denied');
     try {
       await deleteDoc(doc(db, 'products', productId));
+      logActivity('XÓA', 'SẢN PHẨM', `Xóa sản phẩm ID: ${productId}`);
     } catch (e) {
       console.error(e);
       throw e;
@@ -173,6 +194,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     await batch.commit();
+    logActivity('TẠO MỚI', 'GIAO DỊCH', `Tạo phiếu ${txObj.type === 'IMPORT' ? 'Nhập kho' : 'Xuất kho'} trị giá ${txObj.totalValue}`);
   };
 
   const updatePartnerDebt = async (partnerId: string, amountToReduce: number, debtType: 'Receivable' | 'Payable') => {
@@ -201,6 +223,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const batch = writeBatch(db);
     batch.update(ptRef, pUpdate);
     await batch.commit();
+    logActivity('CẬP NHẬT', 'CÔNG NỢ', `Thanh toán giảm nợ ${debtType === 'Receivable' ? 'phải thu' : 'phải trả'} số tiền ${amountToReduce}`);
   };
 
   const addPartner = async (partnerData: Partial<Partner>) => {
@@ -212,18 +235,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    logActivity('TẠO MỚI', 'KHÁCH/NCC', `Tên: ${partnerData.name}`);
   };
 
   const updatePartner = async (partnerId: string, partnerData: Partial<Partner>) => {
     if (!user) throw new Error('Not logged in');
     const ptRef = doc(db, 'partners', partnerId);
     await setDoc(ptRef, { ...partnerData, updatedAt: serverTimestamp() }, { merge: true });
+    logActivity('CẬP NHẬT', 'KHÁCH/NCC', `Cập nhật đối tác ID: ${partnerId}`);
   };
 
   const deletePartner = async (partnerId: string) => {
     if (!user) throw new Error('Not logged in');
     const ptRef = doc(db, 'partners', partnerId);
     await deleteDoc(ptRef);
+    logActivity('XÓA', 'KHÁCH/NCC', `Xóa đối tác ID: ${partnerId}`);
   };
 
   const deleteTransaction = async (transactionId: string) => {
@@ -231,11 +257,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (userProfile?.role !== 'ADMIN') throw new Error('Permission denied');
     const txRef = doc(db, 'transactions', transactionId);
     
-    // (Optional) Here we should ideally reverse the stock and debt changes as well,
-    // but for simplicity according to instructions, we just delete the document for admin power.
-    // If strict reversion is needed, logic should fetch transaction items, update product stocks, update partner debts.
-    
     await deleteDoc(txRef);
+    logActivity('XÓA', 'GIAO DỊCH', `Xóa giao dịch ID: ${transactionId}`);
   };
 
   const deleteUser = async (userId: string) => {
@@ -243,13 +266,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (userProfile?.role !== 'ADMIN') throw new Error('Permission denied');
     const userRef = doc(db, 'users', userId);
     await deleteDoc(userRef);
+    logActivity('XÓA', 'NHÂN VIÊN', `Xóa nhân viên ID: ${userId}`);
   };
 
   return (
     <AppContext.Provider value={{ 
       user, userProfile, loading, products, transactions, partners, usersList, 
       login, addTransaction, updatePartnerDebt, updateUserRole, deleteProduct,
-      addPartner, updatePartner, deletePartner, deleteTransaction, deleteUser
+      addPartner, updatePartner, deletePartner, deleteTransaction, deleteUser,
+      logActivity
     }}>
       {children}
     </AppContext.Provider>

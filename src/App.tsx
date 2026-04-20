@@ -6,6 +6,7 @@ import { Transactions } from './pages/Transactions';
 import { Debts } from './pages/Debts';
 import { PartnersPage } from './pages/PartnersPage';
 import { UsersPage } from './pages/Users';
+import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { LogIn } from 'lucide-react';
 
@@ -65,6 +66,7 @@ function AppContent() {
       case 'debts': return <Debts />;
       case 'partners': return <PartnersPage />;
       case 'users': return <UsersPage />;
+      case 'logs': return <ActivityLogsPage />;
       default: return <Dashboard />;
     }
   };
